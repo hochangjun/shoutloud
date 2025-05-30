@@ -10,7 +10,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: linear-gradient(135deg, #06ffa5 0%, #00d9ff 50%, #0099ff 100%);
+            background: #06ffa5;
             font-family: 'Arial Black', Arial, sans-serif;
         }
         
@@ -61,7 +61,7 @@
 </head>
 <body>
     <!-- Landing Screen -->
-    <div id="landingScreen" class="fixed inset-0 flex items-center justify-center" style="background: linear-gradient(135deg, #06ffa5 0%, #00d9ff 50%, #0099ff 100%);">
+    <div id="landingScreen" class="fixed inset-0 flex items-center justify-center" style="background: #06ffa5;">
         <div class="text-center space-y-8 p-8">
             <h1 class="text-8xl font-black text-black">$LOUD</h1>
             <h2 class="text-4xl font-bold text-blue-900">SHOUTING MATCH</h2>
@@ -543,15 +543,20 @@
             }
             
             viewJoined(viewId) {
-                console.log("Player joined:", viewId);
+                console.log("🎮 Player joined session:", viewId);
+                console.log("🎮 Total views in session:", this.sessionId);
             }
             
             viewExited(viewId) {
+                console.log("🎮 Player left session:", viewId);
                 this.removePlayer(viewId);
                 this.publish("webrtc", "peer-disconnected", {peerId: viewId});
             }
             
             handlePlayerReady({viewId, twitterHandle, cursorX, cursorY}) {
+                console.log("🎯 Player ready:", viewId, twitterHandle);
+                console.log("🎯 Current players before adding:", Array.from(this.players.keys()));
+                
                 const player = {
                     viewId,
                     twitterHandle,
@@ -565,19 +570,26 @@
                     // Join current round if there's space
                     this.players.set(viewId, player);
                     this.scores.set(viewId, 0);
+                    console.log("🎯 Added to current round");
                 } else if (this.players.size < 10 && this.gameState === 'waiting') {
                     // Join current round
                     this.players.set(viewId, player);
                     this.scores.set(viewId, 0);
+                    console.log("🎯 Added to waiting round");
                     
                     // Start round if we have enough players
                     if (this.players.size >= 1) {
+                        console.log("🎯 Starting round with", this.players.size, "players");
                         this.startRound();
                     }
                 } else {
                     // Add to queue
                     this.queue.push(player);
+                    console.log("🎯 Added to queue");
                 }
+                
+                console.log("🎯 Current players after adding:", Array.from(this.players.keys()));
+                console.log("🎯 Total players:", this.players.size);
                 
                 // Notify about new peer for WebRTC
                 this.publish("webrtc", "peer-joined", {peerId: viewId});
@@ -1256,12 +1268,14 @@
         Multisynq.Session.join({
             apiKey: '2Ah3uT9ntspSicbhbmKrB4y1znhnui7kWlCLj67tcF',
             appId: 'io.multisynq.shoutloud',
-            sessionName: 'loud-shouting-match-main', // Fixed session name so everyone joins the same game
+            sessionId: 'loud-main-game-room', // Use sessionId instead of sessionName
             model: LoudGame,
             view: LoudGameView,
         }).then(session => {
             console.log('$LOUD Shouting Match loaded! 🎤');
-            console.log('Session:', session);
+            console.log('Session ID:', session.id);
+            console.log('Session Name:', session.name);
+            console.log('All session info:', session);
             
             // Make view globally accessible for manual restart button
             window.gameView = session.view;
