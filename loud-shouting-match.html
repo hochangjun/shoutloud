@@ -61,7 +61,7 @@
 </head>
 <body>
     <!-- Landing Screen -->
-    <div id="landingScreen" class="fixed inset-0 flex items-center justify-center">
+    <div id="landingScreen" class="fixed inset-0 flex items-center justify-center" style="background: linear-gradient(135deg, #06ffa5 0%, #00d9ff 50%, #0099ff 100%);">
         <div class="text-center space-y-8 p-8">
             <h1 class="text-8xl font-black text-black">$LOUD</h1>
             <h2 class="text-4xl font-bold text-blue-900">SHOUTING MATCH</h2>
@@ -803,6 +803,7 @@
                             console.log('Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
                             
                             // Ultra sensitive - catch any variation of "loud" or similar sounds
+                            // Accept both interim and final results for faster response
                             if (transcript.includes('loud') || 
                                 transcript.includes('load') || 
                                 transcript.includes('laud') || 
@@ -811,10 +812,14 @@
                                 transcript.includes('wow') ||
                                 transcript.includes('ow') ||
                                 transcript.includes('oud') ||
-                                transcript.includes('od')) {
+                                transcript.includes('od') ||
+                                transcript.includes('lou') ||
+                                transcript.includes('no') || // Sometimes "LOUD" is heard as "no"
+                                transcript.includes('la') ||   // Sometimes partial "loud"
+                                transcript.includes('al')) {   // Sometimes reversed
                                 console.log('🎯 LOUD detected from:', transcript);
                                 this.handleShout();
-                                break;
+                                // Don't break - let it continue for multiple detections
                             }
                         }
                     };
@@ -1251,6 +1256,7 @@
         Multisynq.Session.join({
             apiKey: '2Ah3uT9ntspSicbhbmKrB4y1znhnui7kWlCLj67tcF',
             appId: 'io.multisynq.shoutloud',
+            sessionName: 'loud-shouting-match-main', // Fixed session name so everyone joins the same game
             model: LoudGame,
             view: LoudGameView,
         }).then(session => {

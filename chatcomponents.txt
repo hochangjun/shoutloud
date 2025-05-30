@@ -1,0 +1,67 @@
+Chat
+This component renders a chat interface where users can communicate with each other, when connected to the same session.
+
+
+import { Chat } from 'react-together';
+
+export default function ChatDemo() {
+  return (
+    <div className="fixed bottom-0 right-2">
+      <Chat rtKey="chat" />
+    </div>
+  );
+}
+ 
+Usage
+
+import { Chat } from 'react-together'
+ 
+
+return <Chat rtKey="chat" />
+ 
+API
+Params
+Name	Type	Default Value	Description
+rtKey	string	--	
+The unique identifier for this chat.
+
+chatName	string	"Group Chat"	
+The name of the chat. This name will appear in the chat header.
+
+hideWhenDisconnected	boolean	false	
+When this option is set, the chat will not be displayed when the user is not connected to a session.
+
+components	ChatComponents	--	
+The components to use for the chat. This allows to customize the chat interface.
+
+ChatComponents
+Name	Type	Default value	Description
+ChatMinimized	Component<ChatMinimizedProps>	--	
+The component to use for the minimized chat.
+
+ChatExpanded	Component<ChatExpandedProps>	--	
+The component to use for the expanded chat.
+
+ChatHeader	Component<ChatHeaderProps>	--	
+The component to use for the chat header.
+
+MessageList	Component<MessageListProps>	--	
+The component to use for the message list.
+
+MessageRow	Component<MessageRowProps>	--	
+The component to use for each message row.
+
+MessageAvatar	Component<MessageAvatarProps>	--	
+The component to use for the message avatar.
+
+MessageBody	Component<MessageBodyProps>	--	
+The component to use for the message body.
+
+ChatInput	Component<ChatInputProps>	--	
+The component to use for the chat input.
+
+ConnectPrompt	Component<unknown>	--	
+The component to use for the connect prompt. This component is displayed inside the MessageListcomponent when the user is not connected to a session.
+
+WelcomeMessage	Component<unknown>	--	
+The component to use for the welcome message. This is displayed inside the MessageList component when the user is connected to a session, but there are no messages yet.
