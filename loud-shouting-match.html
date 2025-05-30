@@ -200,7 +200,7 @@
             <div class="text-xs text-blue-800 mt-2 font-bold">🔗 Connections:</div>
             <div id="connectionStatus" class="text-xs text-blue-600 mt-1">None</div>
             <div class="text-xs text-green-700 mt-1 font-bold">🎤 Audio fallback: Active</div>
-            <div class="text-xs text-gray-600 mt-1">Shout LOUD or press space!</div>
+            <div class="text-xs text-gray-600 mt-1">Shout LOUD to score!</div>
             <button id="restartSpeechBtn" class="hidden mt-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onclick="window.gameView?.manualRestartSpeech()">
                 🔄 Restart Speech
             </button>
@@ -861,15 +861,6 @@
                 chatSend.addEventListener('click', () => this.sendChatMessage());
                 
                 tweetButton.addEventListener('click', () => this.tweetVictory());
-                
-                // Add space bar as backup shout trigger (for testing)
-                document.addEventListener('keydown', (e) => {
-                    if (e.code === 'Space' && this.isReady && this.model.gameState === 'playing') {
-                        e.preventDefault();
-                        console.log('🚀 SPACE BAR SHOUT!');
-                        this.handleShout();
-                    }
-                });
             }
             
             setupSpeechRecognition() {
@@ -890,13 +881,11 @@
                             const transcript = result[0].transcript.toLowerCase().trim();
                             console.log('🎤 Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
                             
-                            // Make detection EXTREMELY aggressive and sensitive
+                            // Focus on actual "LOUD" variations that make sense
                             const loudVariations = [
-                                'loud', 'load', 'laud', 'out', 'how', 'wow', 'ow', 'oud', 'od', 'lou', 
-                                'no', 'la', 'al', 'low', 'now', 'so', 'go', 'oh', 'lo', 'do', 'to',
-                                'you', 'loo', 'who', 'foo', 'boo', 'too', 'zoo', 'new', 'due', 'few',
-                                'law', 'raw', 'saw', 'paw', 'jaw', 'maw', 'awe', 'yaw', 'plow', 'up',
-                                'and', 'the', 'but', 'not', 'all', 'what', 'were', 'they', 'we', 'when'
+                                'loud', 'load', 'laud', 'loud!', 'loud.', 'loud,',
+                                'oud', 'lou', 'low', 'lau', 'out', 'ow', 'wow',
+                                'loo', 'lo', 'la', 'al', 'od', 'how'
                             ];
                             
                             // Check if transcript contains any variation
@@ -909,14 +898,8 @@
                                 }
                             }
                             
-                            // ALSO: Accept almost any speech if confidence is low (might be shouting)
-                            if (!foundMatch && transcript.length >= 1 && result[0].confidence < 0.7) {
-                                console.log(`🎯 LOUD detected! Low confidence sound: "${transcript}" (${result[0].confidence})`);
-                                foundMatch = true;
-                            }
-                            
-                            // ALSO: Accept very short sounds that might be "LOUD" misheard
-                            if (!foundMatch && transcript.length <= 3) {
+                            // ALSO: Accept very short sounds (1-4 chars) that might be "LOUD" misheard
+                            if (!foundMatch && transcript.length >= 1 && transcript.length <= 4) {
                                 console.log(`🎯 LOUD detected! Short sound (likely LOUD): "${transcript}"`);
                                 foundMatch = true;
                             }
@@ -952,7 +935,7 @@
                             } else {
                                 console.log('❌ Max restart attempts reached - using fallback mode');
                                 this.speechRecognitionStopped = true;
-                                this.updateAudioStatus('🔊 Voice only (use space bar to shout)');
+                                this.updateAudioStatus('🔊 Voice only (audio fallback active)');
                             }
                         }
                     };
