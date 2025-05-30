@@ -901,8 +901,9 @@
                             console.log('⚠️ Speech recognition aborted - will not restart automatically');
                             this.speechRecognitionStopped = true; // Stop on abort to prevent loops
                         } else if (event.error === 'network') {
-                            console.log('⚠️ Speech recognition network error - will retry with longer delay');
-                            setTimeout(() => this.restartSpeechRecognition(), 5000);
+                            console.log('⚠️ Speech recognition network error - stopping attempts to prevent loops');
+                            this.speechRecognitionStopped = true;
+                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
                         } else if (event.error === 'no-speech') {
                             console.log('⚠️ No speech detected - continuing...');
                             // Don't stop for no-speech, just continue
@@ -922,10 +923,11 @@
                     
                     this.speechRecognition.onend = () => {
                         console.log('Speech recognition ended');
-                        // Be more aggressive about restarting - this might be why scoring stopped working
+                        // Stop the aggressive restart that's causing infinite loops with network errors
                         if (this.isReady && !this.speechRecognitionStopped) {
-                            console.log('Speech ended, restarting immediately...');
-                            setTimeout(() => this.restartSpeechRecognition(), 1000);
+                            console.log('Speech ended - will not auto-restart to prevent loops');
+                            this.speechRecognitionStopped = true;
+                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
                         } else {
                             console.log('Speech recognition stopped (will not auto-restart)');
                             this.speechRecognitionStopped = true;
@@ -1358,7 +1360,7 @@
         Multisynq.Session.join({
             apiKey: '2Ah3uT9ntspSicbhbmKrB4y1znhnui7kWlCLj67tcF',
             appId: 'io.multisynq.shoutloud',
-            sessionId: 'loud-main-game-room', // Use sessionId instead of sessionName
+            sessionName: 'loud-main-game-room', // Use sessionName to ensure same session
             model: LoudGame,
             view: LoudGameView,
         }).then(session => {
