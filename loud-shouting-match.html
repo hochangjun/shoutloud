@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$LOUD Shouting Match - Get LOUD and Win!</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2306ffa5'/%3E%3Ctext x='50' y='65' font-family='Arial Black, Arial' font-size='32' font-weight='900' text-anchor='middle' fill='black'%3E%24L%3C/text%3E%3C/svg%3E">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js"></script>
     <style>
@@ -65,9 +69,23 @@
         <div class="text-center space-y-8 p-8">
             <h1 class="text-8xl font-black text-black">$LOUD</h1>
             <h2 class="text-4xl font-bold text-blue-900">SHOUTING MATCH</h2>
-            <p class="text-xl text-black max-w-md mx-auto font-semibold">
-                Shout "LOUD" into your mic - everyone will hear your actual voice in real-time!
-            </p>
+            
+            <div class="space-y-4">
+                <p class="text-xl text-black max-w-lg mx-auto font-semibold">
+                    Shout "LOUD" into your mic - everyone will hear your actual voice in real-time!
+                </p>
+                
+                <p class="text-lg text-blue-900 max-w-lg mx-auto font-bold">
+                    Let's all shout LOUD together! 🎤<br/>
+                    Top players get featured on the leaderboard!
+                </p>
+                
+                <div class="text-sm text-blue-800 space-y-1">
+                    <p class="font-semibold">🏆 <strong>Win rewards:</strong> Get your shouts heard by everyone!</p>
+                    <p class="font-semibold">🎯 <strong>Compete:</strong> Real-time voice scoring in 30-second rounds</p>
+                    <p class="font-semibold">🚀 <strong>Go viral:</strong> Tweet your victories automatically</p>
+                </div>
+            </div>
             
             <div class="space-y-4">
                 <input 
@@ -89,6 +107,10 @@
                 
                 <p class="text-sm text-blue-900 font-semibold">
                     🔊 Real voice transmission - you'll hear everyone's actual shouts!
+                </p>
+                
+                <p class="text-xs text-blue-800 font-semibold mt-4">
+                    A simple game built on <span class="font-bold">MultiSynq</span> by <span class="font-bold">@fishmarketacad</span>
                 </p>
             </div>
         </div>
@@ -818,6 +840,15 @@
                 chatSend.addEventListener('click', () => this.sendChatMessage());
                 
                 tweetButton.addEventListener('click', () => this.tweetVictory());
+                
+                // Add space bar as backup shout trigger (for testing)
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' && this.isReady && this.model.gameState === 'playing') {
+                        e.preventDefault();
+                        console.log('🚀 SPACE BAR SHOUT!');
+                        this.handleShout();
+                    }
+                });
             }
             
             setupSpeechRecognition() {
@@ -838,12 +869,13 @@
                             const transcript = result[0].transcript.toLowerCase().trim();
                             console.log('🎤 Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
                             
-                            // Make detection much more aggressive and sensitive
+                            // Make detection EXTREMELY aggressive and sensitive
                             const loudVariations = [
                                 'loud', 'load', 'laud', 'out', 'how', 'wow', 'ow', 'oud', 'od', 'lou', 
                                 'no', 'la', 'al', 'low', 'now', 'so', 'go', 'oh', 'lo', 'do', 'to',
                                 'you', 'loo', 'who', 'foo', 'boo', 'too', 'zoo', 'new', 'due', 'few',
-                                'law', 'raw', 'saw', 'paw', 'jaw', 'maw', 'awe', 'yaw', 'plow'
+                                'law', 'raw', 'saw', 'paw', 'jaw', 'maw', 'awe', 'yaw', 'plow', 'up',
+                                'and', 'the', 'but', 'not', 'all', 'what', 'were', 'they', 'we', 'when'
                             ];
                             
                             // Check if transcript contains any variation
@@ -856,13 +888,20 @@
                                 }
                             }
                             
-                            // ALSO: Accept any single word or sound if confidence is very low (background noise might be loud shouting)
-                            if (!foundMatch && transcript.length <= 5 && result[0].confidence < 0.5) {
-                                console.log(`🎯 LOUD detected! Low confidence short sound: "${transcript}" (${result[0].confidence})`);
+                            // ALSO: Accept almost any speech if confidence is low (might be shouting)
+                            if (!foundMatch && transcript.length >= 1 && result[0].confidence < 0.7) {
+                                console.log(`🎯 LOUD detected! Low confidence sound: "${transcript}" (${result[0].confidence})`);
+                                foundMatch = true;
+                            }
+                            
+                            // ALSO: Accept very short sounds that might be "LOUD" misheard
+                            if (!foundMatch && transcript.length <= 3) {
+                                console.log(`🎯 LOUD detected! Short sound (likely LOUD): "${transcript}"`);
                                 foundMatch = true;
                             }
                             
                             if (foundMatch) {
+                                console.log('🔥 TRIGGERING SHOUT from speech recognition');
                                 this.handleShout();
                             }
                         }
@@ -893,11 +932,10 @@
                     
                     this.speechRecognition.onend = () => {
                         console.log('Speech recognition ended');
-                        // DON'T automatically restart - this was causing the permission loops
-                        if (this.isReady && !this.speechRecognitionStopped && this.speechRestartCount < this.maxRestarts) {
-                            console.log('Speech ended normally, will restart once...');
-                            this.speechRestartCount++;
-                            setTimeout(() => this.restartSpeechRecognition(), 3000);
+                        // Be more aggressive about restarting - this might be why scoring stopped working
+                        if (this.isReady && !this.speechRecognitionStopped) {
+                            console.log('Speech ended, restarting immediately...');
+                            setTimeout(() => this.restartSpeechRecognition(), 1000);
                         } else {
                             console.log('Speech recognition stopped (will not auto-restart)');
                             this.speechRecognitionStopped = true;
@@ -965,23 +1003,25 @@
             }
             
             restartSpeechRecognition() {
-                if (this.speechRecognition && this.isReady && !this.speechRecognitionStopped && this.speechRestartCount < this.maxRestarts) {
+                if (this.speechRecognition && this.isReady && !this.speechRecognitionStopped) {
                     try {
-                        console.log(`Restarting speech recognition... (attempt ${this.speechRestartCount}/${this.maxRestarts})`);
+                        console.log(`🔄 Restarting speech recognition...`);
                         this.speechRecognition.start();
                     } catch (e) {
                         if (e.name === 'InvalidStateError') {
                             console.log('Speech recognition already running');
                         } else {
                             console.log('Speech recognition restart failed:', e);
-                            this.speechRecognitionStopped = true;
-                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                            // Don't give up easily - try again in a few seconds
+                            console.log('Will try again in 3 seconds...');
+                            setTimeout(() => this.restartSpeechRecognition(), 3000);
                         }
                     }
                 } else {
-                    console.log('Not restarting speech recognition (stopped or max attempts reached)');
-                    this.speechRecognitionStopped = true;
-                    this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                    console.log('Not restarting speech recognition - conditions not met');
+                    console.log('  - speechRecognition exists:', !!this.speechRecognition);
+                    console.log('  - isReady:', this.isReady);
+                    console.log('  - speechRecognitionStopped:', this.speechRecognitionStopped);
                 }
             }
             
