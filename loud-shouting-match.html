@@ -199,6 +199,8 @@
             <div id="voiceActivity" class="text-xs text-blue-600 mt-1">Listening...</div>
             <div class="text-xs text-blue-800 mt-2 font-bold">🔗 Connections:</div>
             <div id="connectionStatus" class="text-xs text-blue-600 mt-1">None</div>
+            <div class="text-xs text-green-700 mt-1 font-bold">🎤 Audio fallback: Active</div>
+            <div class="text-xs text-gray-600 mt-1">Shout LOUD or press space!</div>
             <button id="restartSpeechBtn" class="hidden mt-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onclick="window.gameView?.manualRestartSpeech()">
                 🔄 Restart Speech
             </button>
@@ -270,6 +272,8 @@
 
             startVoiceActivityDetection() {
                 const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                let loudCount = 0;
+                let lastShoutTime = 0;
                 
                 const detectActivity = () => {
                     this.analyser.getByteFrequencyData(dataArray);
@@ -280,6 +284,23 @@
                         sum += dataArray[i];
                     }
                     this.micLevel = sum / dataArray.length;
+                    
+                    // Detect loud shouting as fallback when speech recognition fails
+                    if (this.micLevel > 80) { // Very loud threshold
+                        loudCount++;
+                        if (loudCount > 3 && (Date.now() - lastShoutTime) > 1000) { // 3 consecutive loud readings, 1s cooldown
+                            lastShoutTime = Date.now();
+                            loudCount = 0;
+                            
+                            // Only trigger if we're connected and in game
+                            if (window.gameView && window.gameView.isReady && window.gameView.model.gameState === 'playing') {
+                                console.log('🎤🔊 LOUD AUDIO detected as fallback! Level:', Math.round(this.micLevel));
+                                window.gameView.handleShout();
+                            }
+                        }
+                    } else {
+                        loudCount = 0;
+                    }
                     
                     // Update UI
                     const indicator = document.getElementById('voiceActivity');
@@ -916,6 +937,12 @@
                         } else if (event.error === 'aborted') {
                             console.log('⚠️ Speech recognition aborted - will not restart automatically');
                             this.speechRecognitionStopped = true; // Stop on abort to prevent loops
+                        } else if (event.error === 'network') {
+                            console.log('⚠️ Speech recognition network error - will retry with longer delay');
+                            setTimeout(() => this.restartSpeechRecognition(), 5000);
+                        } else if (event.error === 'no-speech') {
+                            console.log('⚠️ No speech detected - continuing...');
+                            // Don't stop for no-speech, just continue
                         } else {
                             console.log('⚠️ Speech recognition error:', event.error);
                             this.speechRestartCount++;
@@ -923,9 +950,9 @@
                                 console.log(`Will retry... (${this.speechRestartCount}/${this.maxRestarts})`);
                                 setTimeout(() => this.restartSpeechRecognition(), 5000);
                             } else {
-                                console.log('❌ Max restart attempts reached - stopping speech recognition');
+                                console.log('❌ Max restart attempts reached - using fallback mode');
                                 this.speechRecognitionStopped = true;
-                                this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                                this.updateAudioStatus('🔊 Voice only (use space bar to shout)');
                             }
                         }
                     };
@@ -991,14 +1018,11 @@
                     return;
                 }
                 
-                if (this.model.gameState !== 'playing') {
-                    console.log('❌ Game not in playing state:', this.model.gameState);
-                    alert('Wait for the round to start!');
-                    return;
-                }
+                console.log('✅ Forcing test shout regardless of game state...');
+                console.log('   - Current game state:', this.model.gameState);
+                console.log('   - Will trigger handleShout() directly');
                 
-                // Force trigger a shout regardless of speech recognition
-                console.log('✅ Triggering test shout...');
+                // Force trigger a shout regardless of game state for testing
                 this.handleShout();
             }
             
@@ -1105,16 +1129,22 @@
             }
             
             handleShout() {
-                if (!this.isReady || this.model.gameState !== 'playing') {
-                    console.log('❌ Shout ignored - not ready or game not playing');
-                    console.log('   - isReady:', this.isReady);
-                    console.log('   - gameState:', this.model.gameState);
+                console.log('🔥 handleShout() called');
+                console.log('   - isReady:', this.isReady);
+                console.log('   - gameState:', this.model.gameState);
+                console.log('   - viewId:', this.viewId);
+                console.log('   - twitterHandle:', this.twitterHandle);
+                
+                if (!this.isReady) {
+                    console.log('❌ Shout ignored - not ready');
                     return;
                 }
                 
+                if (this.model.gameState !== 'playing') {
+                    console.log('⚠️ Game not in playing state, but proceeding for testing...');
+                }
+                
                 console.log('✅ LOUD detected! Shouting...');
-                console.log('   - viewId:', this.viewId);
-                console.log('   - twitterHandle:', this.twitterHandle);
                 console.log('   - current score:', this.model.scores.get(this.viewId) || 0);
                 
                 this.publish("game", "player-shout", {
