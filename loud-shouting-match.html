@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$LOUD Shouting Match - Get LOUD and Win!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #06ffa5 0%, #00d9ff 50%, #0099ff 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        
+        .pulse-ring {
+            animation: pulseRing 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        
+        @keyframes pulseRing {
+            0% { transform: scale(0.8); opacity: 1; }
+            80%, 100% { transform: scale(2.4); opacity: 0; }
+        }
+        
+        .shake {
+            animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .cursor-player {
+            position: absolute;
+            pointer-events: none;
+            transition: all 0.1s ease-out;
+            z-index: 1000;
+        }
+        
+        .glow {
+            box-shadow: 0 0 20px currentColor;
+        }
+        
+        .text-glow {
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .audio-wave {
+            animation: audioWave 0.5s ease-in-out;
+        }
+
+        @keyframes audioWave {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Landing Screen -->
+    <div id="landingScreen" class="fixed inset-0 flex items-center justify-center">
+        <div class="text-center space-y-8 p-8">
+            <h1 class="text-8xl font-black text-black">$LOUD</h1>
+            <h2 class="text-4xl font-bold text-blue-900">SHOUTING MATCH</h2>
+            <p class="text-xl text-black max-w-md mx-auto font-semibold">
+                Shout "LOUD" into your mic - everyone will hear your actual voice in real-time!
+            </p>
+            
+            <div class="space-y-4">
+                <input 
+                    id="twitterHandle" 
+                    type="text" 
+                    placeholder="Enter your Twitter handle (@username)"
+                    class="w-80 px-6 py-4 text-xl font-bold text-center bg-white/90 text-black placeholder-blue-600 border-2 border-blue-600 rounded-xl focus:outline-none focus:border-blue-800 focus:bg-white"
+                    maxlength="20"
+                />
+                
+                <div>
+                    <button 
+                        id="joinButton"
+                        class="w-80 py-4 text-2xl font-black bg-blue-600 text-white rounded-xl hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                    >
+                        🎤 SHOUT LOUD!
+                    </button>
+                </div>
+                
+                <p class="text-sm text-blue-900 font-semibold">
+                    🔊 Real voice transmission - you'll hear everyone's actual shouts!
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="fixed inset-0 hidden">
+        <!-- Header -->
+        <div class="absolute top-0 left-0 right-0 z-50 bg-blue-800/90 p-4 border-b-2 border-blue-600">
+            <div class="flex justify-between items-center">
+                <div class="text-white">
+                    <h1 class="text-3xl font-black">$LOUD MATCH</h1>
+                    <div id="gameStatus" class="text-cyan-300 font-bold"></div>
+                </div>
+                
+                <div class="text-center">
+                    <div id="timer" class="text-6xl font-black text-white"></div>
+                    <div class="text-cyan-300">SHOUT "LOUD"!</div>
+                </div>
+                
+                <div class="text-right">
+                    <div id="playerCount" class="text-white text-xl"></div>
+                    <div class="text-cyan-200">players connected</div>
+                    <div id="audioStatus" class="text-xs text-cyan-400 mt-1">🔊 Voice connected</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Arena -->
+        <div id="gameArena" class="absolute inset-0 pt-24">
+            <!-- Cursors will be rendered here -->
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="absolute top-24 right-4 w-80 bg-white/95 rounded-xl p-4 max-h-96 overflow-y-auto border-2 border-blue-600 shadow-lg">
+            <h3 class="text-xl font-bold text-blue-800 mb-3">🏆 LIVE LEADERBOARD</h3>
+            <div id="leaderboard" class="space-y-2"></div>
+        </div>
+
+        <!-- Queue Display -->
+        <div id="queueDisplay" class="absolute bottom-4 left-4 bg-white/95 rounded-xl p-4 hidden border-2 border-blue-600 shadow-lg">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">⏳ QUEUE</h3>
+            <div id="queueList" class="space-y-1"></div>
+        </div>
+
+        <!-- Chat -->
+        <div class="absolute bottom-4 right-4 w-80 h-48 bg-white/95 rounded-xl p-4 border-2 border-blue-600 shadow-lg">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">💬 CHAT</h3>
+            <div id="chatMessages" class="h-24 overflow-y-auto text-sm text-black space-y-1 mb-2"></div>
+            <div class="flex gap-1">
+                <input 
+                    id="chatInput" 
+                    type="text" 
+                    placeholder="Type message..."
+                    class="flex-1 px-3 py-2 bg-white text-black placeholder-blue-600 rounded-lg focus:outline-none text-sm border border-blue-400"
+                    maxlength="100"
+                />
+                <button 
+                    id="chatSend"
+                    class="px-3 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 text-sm"
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+
+        <!-- Winner Display -->
+        <div id="winnerDisplay" class="absolute inset-0 bg-blue-900/95 flex items-center justify-center hidden">
+            <div class="text-center space-y-6 p-8 bg-white/95 rounded-xl border-2 border-blue-600 shadow-2xl">
+                <h2 class="text-6xl font-black text-blue-800">🏆 WINNER!</h2>
+                <div id="winnerInfo" class="text-4xl font-bold text-black"></div>
+                <div id="winnerStats" class="text-xl text-blue-700"></div>
+                <button 
+                    id="tweetButton"
+                    class="px-8 py-4 text-xl font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transform hover:scale-105 transition-all"
+                >
+                    🐦 Tweet Victory!
+                </button>
+                <div class="text-blue-700">Next round starting soon...</div>
+            </div>
+        </div>
+
+        <!-- Audio Indicator -->
+        <div id="audioIndicator" class="absolute top-32 left-4 bg-white/95 rounded-lg p-3 border-2 border-blue-600 min-w-48 shadow-lg">
+            <div class="text-blue-800 text-sm font-bold">🎤 Voice Activity</div>
+            <div id="voiceActivity" class="text-xs text-blue-600 mt-1">Listening...</div>
+            <div class="text-xs text-blue-800 mt-2 font-bold">🔗 Connections:</div>
+            <div id="connectionStatus" class="text-xs text-blue-600 mt-1">None</div>
+            <button id="restartSpeechBtn" class="hidden mt-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onclick="window.gameView?.manualRestartSpeech()">
+                🔄 Restart Speech
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /////////// WebRTC Audio Manager ///////////
+        class AudioManager {
+            constructor() {
+                this.localStream = null;
+                this.peerConnections = new Map();
+                this.audioContext = null;
+                this.isTransmitting = false;
+                this.onPlayerShout = null;
+                this.analyser = null;
+                this.micLevel = 0;
+                this.isInitialized = false;
+                
+                // WebRTC configuration
+                this.rtcConfig = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                };
+            }
+
+            async initialize() {
+                if (this.isInitialized) {
+                    console.log('Audio already initialized');
+                    return true;
+                }
+
+                try {
+                    // Get user media ONCE - this will be shared
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: false
+                        } 
+                    });
+
+                    // Setup audio analysis for voice activity detection
+                    this.audioContext = new (AudioContext || webkitAudioContext)();
+                    const source = this.audioContext.createMediaStreamSource(this.localStream);
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.analyser.fftSize = 256;
+                    source.connect(this.analyser);
+
+                    this.startVoiceActivityDetection();
+                    this.updateConnectionStatus();
+                    this.isInitialized = true;
+                    console.log('Audio initialized successfully');
+                    return this.localStream; // Return the stream to share
+                } catch (error) {
+                    console.error('Failed to initialize audio:', error);
+                    return false;
+                }
+            }
+
+            getSharedStream() {
+                return this.localStream;
+            }
+
+            startVoiceActivityDetection() {
+                const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                
+                const detectActivity = () => {
+                    this.analyser.getByteFrequencyData(dataArray);
+                    
+                    // Calculate average volume
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    this.micLevel = sum / dataArray.length;
+                    
+                    // Update UI
+                    const indicator = document.getElementById('voiceActivity');
+                    if (indicator) {
+                        if (this.micLevel > 20) {
+                            indicator.textContent = `🔊 Speaking (${Math.round(this.micLevel)})`;
+                            indicator.className = 'text-xs text-blue-800 mt-1 font-bold';
+                        } else {
+                            indicator.textContent = 'Listening...';
+                            indicator.className = 'text-xs text-blue-600 mt-1';
+                        }
+                    }
+                    
+                    requestAnimationFrame(detectActivity);
+                };
+                
+                detectActivity();
+            }
+
+            updateConnectionStatus() {
+                const statusEl = document.getElementById('connectionStatus');
+                if (!statusEl) return;
+
+                const connections = [];
+                for (const [peerId, pc] of this.peerConnections) {
+                    const state = pc.connectionState;
+                    const iceState = pc.iceConnectionState;
+                    const icon = state === 'connected' ? '✅' : state === 'connecting' ? '🔄' : '❌';
+                    connections.push(`${icon} ${peerId.slice(-6)} (${state})`);
+                }
+
+                if (connections.length === 0) {
+                    statusEl.textContent = 'None';
+                } else {
+                    statusEl.innerHTML = connections.join('<br>');
+                }
+                
+                console.log(`🔗 Connection status updated: ${connections.length} peers`);
+            }
+
+            async connectToPeer(peerId, isInitiator = false) {
+                if (this.peerConnections.has(peerId)) {
+                    console.log(`Already connected to peer: ${peerId}`);
+                    return; // Already connected
+                }
+
+                console.log(`🔗 Connecting to peer: ${peerId}, isInitiator: ${isInitiator}`);
+                const pc = new RTCPeerConnection(this.rtcConfig);
+                this.peerConnections.set(peerId, pc);
+
+                // Add local stream FIRST
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(track => {
+                        console.log(`📤 Adding local track to peer ${peerId}:`, track.kind);
+                        pc.addTrack(track, this.localStream);
+                    });
+                } else {
+                    console.error(`❌ No local stream available for peer ${peerId}`);
+                }
+
+                // Handle remote stream
+                pc.ontrack = (event) => {
+                    console.log(`📥 Received remote stream from: ${peerId}`);
+                    const remoteStream = event.streams[0];
+                    if (remoteStream) {
+                        this.playRemoteAudio(remoteStream, peerId);
+                    } else {
+                        console.error(`❌ No remote stream in track event from ${peerId}`);
+                    }
+                };
+
+                // Handle connection state
+                pc.onconnectionstatechange = () => {
+                    console.log(`🔗 Connection with ${peerId}: ${pc.connectionState}`);
+                    this.updateConnectionStatus(); // Update UI
+                    if (pc.connectionState === 'connected') {
+                        console.log(`✅ Successfully connected to peer: ${peerId}`);
+                    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                        console.log(`❌ Connection failed with ${peerId}, cleaning up...`);
+                        this.disconnectFromPeer(peerId);
+                    }
+                };
+
+                // Handle ICE connection state
+                pc.oniceconnectionstatechange = () => {
+                    console.log(`🧊 ICE connection with ${peerId}: ${pc.iceConnectionState}`);
+                    this.updateConnectionStatus(); // Update UI
+                };
+
+                // Handle ICE candidates via MultiSynq
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log(`🧊 Sending ICE candidate to ${peerId}`);
+                        // Send ICE candidate via MultiSynq - extract serializable properties only
+                        if (this.onSendSignal) {
+                            this.onSendSignal('ice-candidate', {
+                                candidate: {
+                                    candidate: event.candidate.candidate,
+                                    sdpMid: event.candidate.sdpMid,
+                                    sdpMLineIndex: event.candidate.sdpMLineIndex
+                                },
+                                targetPeer: peerId,
+                                fromPeer: this.localPeerId
+                            });
+                        }
+                    } else {
+                        console.log(`🧊 ICE gathering complete for ${peerId}`);
+                    }
+                };
+
+                if (isInitiator) {
+                    console.log(`📞 Creating offer for ${peerId}`);
+                    // Create and send offer
+                    const offer = await pc.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: false
+                    });
+                    await pc.setLocalDescription(offer);
+                    
+                    console.log(`📤 Sending offer to ${peerId}`);
+                    if (this.onSendSignal) {
+                        this.onSendSignal('offer', {
+                            offer: offer,
+                            targetPeer: peerId,
+                            fromPeer: this.localPeerId
+                        });
+                    }
+                }
+
+                return pc;
+            }
+
+            async handleSignal(signal, data) {
+                const { fromPeer, targetPeer } = data;
+                
+                if (targetPeer !== this.localPeerId) {
+                    console.log(`⏭️ Signal not for us (${this.localPeerId}), ignoring`);
+                    return;
+                }
+
+                console.log(`📨 Received ${signal} from ${fromPeer}`);
+
+                let pc = this.peerConnections.get(fromPeer);
+                if (!pc) {
+                    console.log(`🔗 No existing connection to ${fromPeer}, creating one`);
+                    pc = await this.connectToPeer(fromPeer, false);
+                }
+
+                try {
+                    switch (signal) {
+                        case 'offer':
+                            console.log(`📥 Processing offer from ${fromPeer}`);
+                            await pc.setRemoteDescription(data.offer);
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            
+                            console.log(`📤 Sending answer to ${fromPeer}`);
+                            if (this.onSendSignal) {
+                                this.onSendSignal('answer', {
+                                    answer: answer,
+                                    targetPeer: fromPeer,
+                                    fromPeer: this.localPeerId
+                                });
+                            }
+                            break;
+                            
+                        case 'answer':
+                            console.log(`📥 Processing answer from ${fromPeer}`);
+                            await pc.setRemoteDescription(data.answer);
+                            break;
+                            
+                        case 'ice-candidate':
+                            console.log(`🧊 Adding ICE candidate from ${fromPeer}`);
+                            // Reconstruct RTCIceCandidate from serialized data
+                            const iceCandidate = new RTCIceCandidate({
+                                candidate: data.candidate.candidate,
+                                sdpMid: data.candidate.sdpMid,
+                                sdpMLineIndex: data.candidate.sdpMLineIndex
+                            });
+                            await pc.addIceCandidate(iceCandidate);
+                            break;
+                    }
+                } catch (error) {
+                    console.error(`❌ Error handling ${signal} from ${fromPeer}:`, error);
+                }
+            }
+
+            playRemoteAudio(stream, peerId) {
+                // Remove existing audio element if any
+                const existingAudio = document.getElementById(`audio-${peerId}`);
+                if (existingAudio) {
+                    existingAudio.remove();
+                }
+
+                // Create audio element for remote stream
+                const audio = document.createElement('audio');
+                audio.srcObject = stream;
+                audio.autoplay = true;
+                audio.volume = 1.0; // Full volume
+                audio.id = `audio-${peerId}`;
+                
+                // Add to DOM (hidden)
+                audio.style.display = 'none';
+                document.body.appendChild(audio);
+                
+                // Add event listeners for debugging
+                audio.onloadedmetadata = () => {
+                    console.log(`🔊 Audio metadata loaded for peer: ${peerId}`);
+                };
+                
+                audio.onplay = () => {
+                    console.log(`▶️ Audio started playing for peer: ${peerId}`);
+                };
+                
+                audio.onerror = (error) => {
+                    console.error(`❌ Audio error for peer ${peerId}:`, error);
+                };
+                
+                console.log(`🔊 Audio element created for peer: ${peerId}, stream tracks:`, stream.getTracks().length);
+                
+                // Log track info
+                stream.getTracks().forEach(track => {
+                    console.log(`🎵 Remote track from ${peerId}:`, track.kind, track.enabled, track.muted);
+                });
+            }
+
+            disconnectFromPeer(peerId) {
+                const pc = this.peerConnections.get(peerId);
+                if (pc) {
+                    pc.close();
+                    this.peerConnections.delete(peerId);
+                }
+
+                // Remove audio element
+                const audio = document.getElementById(`audio-${peerId}`);
+                if (audio) {
+                    audio.remove();
+                }
+
+                this.updateConnectionStatus(); // Update UI
+                console.log(`🔌 Disconnected from peer: ${peerId}`);
+            }
+
+            cleanup() {
+                // Close all peer connections
+                this.peerConnections.forEach((pc, peerId) => {
+                    this.disconnectFromPeer(peerId);
+                });
+
+                // Stop local stream
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(track => track.stop());
+                }
+
+                // Close audio context
+                if (this.audioContext) {
+                    this.audioContext.close();
+                }
+            }
+        }
+
+        /////////// Model - Synchronized Game State ///////////
+        class LoudGame extends Multisynq.Model {
+            init() {
+                this.gameState = 'waiting'; // 'waiting', 'playing', 'finished'
+                this.players = new Map(); // Active players in current round
+                this.queue = []; // Players waiting for next round
+                this.scores = new Map(); // Current round scores
+                this.roundTimer = 30;
+                this.roundStartTime = null;
+                this.currentWinner = null;
+                this.chatMessages = [];
+                
+                // Subscribe to player events
+                this.subscribe(this.sessionId, "view-join", this.viewJoined);
+                this.subscribe(this.sessionId, "view-exit", this.viewExited);
+                this.subscribe("game", "player-shout", this.handlePlayerShout);
+                this.subscribe("game", "player-ready", this.handlePlayerReady);
+                this.subscribe("chat", "message", this.handleChatMessage);
+                
+                // WebRTC signaling
+                this.subscribe("webrtc", "signal", this.handleWebRTCSignal);
+                
+                // Start the main game loop
+                this.gameLoop();
+            }
+            
+            viewJoined(viewId) {
+                console.log("Player joined:", viewId);
+            }
+            
+            viewExited(viewId) {
+                this.removePlayer(viewId);
+                this.publish("webrtc", "peer-disconnected", {peerId: viewId});
+            }
+            
+            handlePlayerReady({viewId, twitterHandle, cursorX, cursorY}) {
+                const player = {
+                    viewId,
+                    twitterHandle,
+                    cursorX: cursorX || Math.random() * window.innerWidth,
+                    cursorY: cursorY || Math.random() * window.innerHeight,
+                    shoutCount: 0,
+                    lastShoutTime: 0
+                };
+                
+                if (this.gameState === 'playing' && this.players.size < 10) {
+                    // Join current round if there's space
+                    this.players.set(viewId, player);
+                    this.scores.set(viewId, 0);
+                } else if (this.players.size < 10 && this.gameState === 'waiting') {
+                    // Join current round
+                    this.players.set(viewId, player);
+                    this.scores.set(viewId, 0);
+                    
+                    // Start round if we have enough players
+                    if (this.players.size >= 1) {
+                        this.startRound();
+                    }
+                } else {
+                    // Add to queue
+                    this.queue.push(player);
+                }
+                
+                // Notify about new peer for WebRTC
+                this.publish("webrtc", "peer-joined", {peerId: viewId});
+                this.publish("game", "state-updated");
+            }
+            
+            handlePlayerShout({viewId, twitterHandle, cursorX, cursorY}) {
+                if (this.gameState !== 'playing') return;
+                
+                const player = this.players.get(viewId);
+                if (!player) return;
+                
+                const now = Date.now();
+                if (now - player.lastShoutTime < 100) return; // Super sensitive - only 100ms timeout!
+                
+                // Update player data
+                player.cursorX = cursorX;
+                player.cursorY = cursorY;
+                player.shoutCount++;
+                player.lastShoutTime = now;
+                
+                // Update score
+                const currentScore = this.scores.get(viewId) || 0;
+                this.scores.set(viewId, currentScore + 1);
+                
+                this.publish("game", "shout-detected", {
+                    viewId, 
+                    score: currentScore + 1, 
+                    twitterHandle: player.twitterHandle
+                });
+                this.publish("game", "state-updated");
+            }
+            
+            handleChatMessage({message, author, timestamp}) {
+                this.chatMessages.push({message, author, timestamp});
+                // Keep only last 50 messages
+                if (this.chatMessages.length > 50) {
+                    this.chatMessages = this.chatMessages.slice(-50);
+                }
+                this.publish("chat", "updated", this.chatMessages);
+            }
+
+            handleWebRTCSignal({signal, data}) {
+                // Relay WebRTC signaling between peers
+                this.publish("webrtc", "signal-relay", {signal, data});
+            }
+            
+            startRound() {
+                this.gameState = 'playing';
+                this.roundTimer = 30;
+                this.roundStartTime = this.now();
+                this.currentWinner = null;
+                
+                // Reset scores
+                for (const viewId of this.players.keys()) {
+                    this.scores.set(viewId, 0);
+                }
+                
+                this.publish("game", "round-started");
+                this.publish("game", "state-updated");
+            }
+            
+            endRound() {
+                this.gameState = 'finished';
+                
+                // Find winner
+                let maxScore = 0;
+                let winner = null;
+                
+                for (const [viewId, score] of this.scores) {
+                    if (score > maxScore) {
+                        maxScore = score;
+                        winner = this.players.get(viewId);
+                    }
+                }
+                
+                this.currentWinner = winner;
+                this.publish("game", "round-ended", {winner, maxScore});
+                
+                // Cycle players: move current players to back of queue, bring in new players
+                this.future(5000).cyclePlayersToQueue();
+                this.future(5100).prepareNextRound();
+            }
+            
+            cyclePlayersToQueue() {
+                // Move current players to queue
+                for (const player of this.players.values()) {
+                    this.queue.push(player);
+                }
+                
+                this.players.clear();
+                this.scores.clear();
+            }
+            
+            prepareNextRound() {
+                // Bring in players from queue
+                const playersToAdd = Math.min(10, this.queue.length);
+                
+                for (let i = 0; i < playersToAdd; i++) {
+                    const player = this.queue.shift();
+                    this.players.set(player.viewId, player);
+                    this.scores.set(player.viewId, 0);
+                }
+                
+                this.gameState = 'waiting';
+                
+                // Auto-start if we have players - use future() to stay in model context
+                if (this.players.size >= 1) {
+                    this.future(3000).startRound();
+                }
+                
+                this.publish("game", "state-updated");
+            }
+            
+            removePlayer(viewId) {
+                this.players.delete(viewId);
+                this.scores.delete(viewId);
+                
+                // Remove from queue
+                this.queue = this.queue.filter(p => p.viewId !== viewId);
+                
+                this.publish("game", "state-updated");
+            }
+            
+            gameLoop() {
+                if (this.gameState === 'playing' && this.roundStartTime) {
+                    const elapsed = this.now() - this.roundStartTime;
+                    const remaining = Math.max(0, 30 - Math.floor(elapsed / 1000));
+                    
+                    if (remaining !== this.roundTimer) {
+                        this.roundTimer = remaining;
+                        this.publish("game", "timer-update", remaining);
+                        
+                        if (remaining === 0) {
+                            this.endRound();
+                        }
+                    }
+                } else if (this.gameState === 'waiting') {
+                    // Show "waiting" in timer when not playing
+                    this.publish("game", "timer-update", "READY?");
+                }
+                
+                // Continue loop
+                this.future(100).gameLoop();
+            }
+        }
+        
+        LoudGame.register("LoudGame");
+
+        /////////// View - Local UI and Interaction ///////////
+        class LoudGameView extends Multisynq.View {
+            constructor(model) {
+                super(model);
+                this.model = model;
+                this.twitterHandle = '';
+                this.isReady = false;
+                this.cursorX = window.innerWidth / 2;
+                this.cursorY = window.innerHeight / 2;
+                this.speechRecognition = null;
+                this.speechRecognitionStopped = false;
+                this.audioManager = new AudioManager();
+                
+                this.setupEventListeners();
+                this.setupSpeechRecognition();
+                this.trackMousePosition();
+                
+                // Subscribe to model events
+                this.subscribe("game", "state-updated", this.updateGameState);
+                this.subscribe("game", "round-started", this.handleRoundStart);
+                this.subscribe("game", "round-ended", this.handleRoundEnd);
+                this.subscribe("game", "timer-update", this.updateTimer);
+                this.subscribe("game", "shout-detected", this.handleShoutDetected);
+                this.subscribe("chat", "updated", this.updateChat);
+                
+                // WebRTC events
+                this.subscribe("webrtc", "peer-joined", this.handlePeerJoined);
+                this.subscribe("webrtc", "peer-disconnected", this.handlePeerDisconnected);
+                this.subscribe("webrtc", "signal-relay", this.handleWebRTCSignalRelay);
+                
+                // Setup WebRTC signaling
+                this.audioManager.localPeerId = this.viewId;
+                this.audioManager.onSendSignal = (signal, data) => {
+                    this.publish("webrtc", "signal", {signal, data});
+                };
+            }
+            
+            setupEventListeners() {
+                const joinButton = document.getElementById('joinButton');
+                const twitterInput = document.getElementById('twitterHandle');
+                const chatInput = document.getElementById('chatInput');
+                const chatSend = document.getElementById('chatSend');
+                const tweetButton = document.getElementById('tweetButton');
+                
+                joinButton.addEventListener('click', () => this.joinGame());
+                twitterInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.joinGame();
+                });
+                
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendChatMessage();
+                });
+                chatSend.addEventListener('click', () => this.sendChatMessage());
+                
+                tweetButton.addEventListener('click', () => this.tweetVictory());
+            }
+            
+            setupSpeechRecognition() {
+                // Create recognition but DON'T start it yet
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    this.speechRecognition = new SpeechRecognition();
+                    this.speechRestartCount = 0; // Track restart attempts
+                    this.maxRestarts = 2; // Only allow 2 restarts to prevent permission loops
+                    
+                    this.speechRecognition.continuous = true;
+                    this.speechRecognition.interimResults = true;
+                    this.speechRecognition.lang = 'en-US';
+                    
+                    this.speechRecognition.onresult = (event) => {
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const result = event.results[i];
+                            const transcript = result[0].transcript.toLowerCase().trim();
+                            console.log('Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
+                            
+                            // Ultra sensitive - catch any variation of "loud" or similar sounds
+                            if (transcript.includes('loud') || 
+                                transcript.includes('load') || 
+                                transcript.includes('laud') || 
+                                transcript.includes('out') ||
+                                transcript.includes('how') ||
+                                transcript.includes('wow') ||
+                                transcript.includes('ow') ||
+                                transcript.includes('oud') ||
+                                transcript.includes('od')) {
+                                console.log('🎯 LOUD detected from:', transcript);
+                                this.handleShout();
+                                break;
+                            }
+                        }
+                    };
+                    
+                    this.speechRecognition.onerror = (event) => {
+                        console.log('Speech recognition error:', event.error);
+                        if (event.error === 'not-allowed') {
+                            console.log('❌ Speech recognition permission denied - stopping attempts');
+                            this.speechRecognitionStopped = true;
+                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                        } else if (event.error === 'aborted') {
+                            console.log('⚠️ Speech recognition aborted - will not restart automatically');
+                            this.speechRecognitionStopped = true; // Stop on abort to prevent loops
+                        } else {
+                            console.log('⚠️ Speech recognition error:', event.error);
+                            this.speechRestartCount++;
+                            if (this.speechRestartCount < this.maxRestarts) {
+                                console.log(`Will retry... (${this.speechRestartCount}/${this.maxRestarts})`);
+                                setTimeout(() => this.restartSpeechRecognition(), 5000);
+                            } else {
+                                console.log('❌ Max restart attempts reached - stopping speech recognition');
+                                this.speechRecognitionStopped = true;
+                                this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                            }
+                        }
+                    };
+                    
+                    this.speechRecognition.onend = () => {
+                        console.log('Speech recognition ended');
+                        // DON'T automatically restart - this was causing the permission loops
+                        if (this.isReady && !this.speechRecognitionStopped && this.speechRestartCount < this.maxRestarts) {
+                            console.log('Speech ended normally, will restart once...');
+                            this.speechRestartCount++;
+                            setTimeout(() => this.restartSpeechRecognition(), 3000);
+                        } else {
+                            console.log('Speech recognition stopped (will not auto-restart)');
+                            this.speechRecognitionStopped = true;
+                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                        }
+                    };
+                    
+                    console.log('Speech recognition setup complete (not started yet)');
+                }
+            }
+            
+            updateAudioStatus(message) {
+                const statusEl = document.getElementById('audioStatus');
+                if (statusEl) {
+                    statusEl.textContent = message;
+                }
+                
+                // Show/hide restart button based on status
+                const restartBtn = document.getElementById('restartSpeechBtn');
+                if (restartBtn) {
+                    if (message.includes('speech disabled')) {
+                        restartBtn.classList.remove('hidden');
+                    } else {
+                        restartBtn.classList.add('hidden');
+                    }
+                }
+            }
+            
+            manualRestartSpeech() {
+                console.log('🔄 Manual speech recognition restart requested');
+                this.speechRecognitionStopped = false;
+                this.speechRestartCount = 0; // Reset counter for manual restart
+                this.updateAudioStatus('🔊 Voice connected');
+                
+                // Hide restart button
+                const restartBtn = document.getElementById('restartSpeechBtn');
+                if (restartBtn) {
+                    restartBtn.classList.add('hidden');
+                }
+                
+                // Start speech recognition
+                setTimeout(() => {
+                    this.startSpeechRecognition();
+                }, 500);
+            }
+            
+            restartSpeechRecognition() {
+                if (this.speechRecognition && this.isReady && !this.speechRecognitionStopped && this.speechRestartCount < this.maxRestarts) {
+                    try {
+                        console.log(`Restarting speech recognition... (attempt ${this.speechRestartCount}/${this.maxRestarts})`);
+                        this.speechRecognition.start();
+                    } catch (e) {
+                        if (e.name === 'InvalidStateError') {
+                            console.log('Speech recognition already running');
+                        } else {
+                            console.log('Speech recognition restart failed:', e);
+                            this.speechRecognitionStopped = true;
+                            this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                        }
+                    }
+                } else {
+                    console.log('Not restarting speech recognition (stopped or max attempts reached)');
+                    this.speechRecognitionStopped = true;
+                    this.updateAudioStatus('🔊 Voice only (speech disabled)');
+                }
+            }
+            
+            trackMousePosition() {
+                document.addEventListener('mousemove', (e) => {
+                    this.cursorX = e.clientX;
+                    this.cursorY = e.clientY;
+                });
+            }
+            
+            async joinGame() {
+                const handle = document.getElementById('twitterHandle').value.trim();
+                if (!handle) {
+                    alert('Please enter your Twitter handle!');
+                    return;
+                }
+                
+                this.twitterHandle = handle.startsWith('@') ? handle : '@' + handle;
+                this.speechRecognitionStopped = false;
+                
+                try {
+                    // Step 1: Initialize WebRTC audio FIRST
+                    console.log('Step 1: Requesting microphone for WebRTC...');
+                    const audioStream = await this.audioManager.initialize();
+                    if (!audioStream) {
+                        alert('Microphone access is required for voice transmission!');
+                        return;
+                    }
+                    
+                    console.log('✅ Microphone access granted for WebRTC');
+                    
+                    // Step 2: Show game screen
+                    this.showGameScreen();
+                    this.joinAsPlayer();
+                    
+                    // Step 3: Try speech recognition (it might request mic again, but we already have it)
+                    setTimeout(() => {
+                        console.log('Step 3: Starting speech recognition (may request mic again)...');
+                        this.startSpeechRecognition();
+                    }, 2000);
+                    
+                    // Update audio status
+                    document.getElementById('audioStatus').textContent = '🔊 Voice connected';
+                    
+                } catch (error) {
+                    console.error('Error during game join:', error);
+                    alert('Failed to initialize audio. Please refresh and try again.');
+                }
+            }
+            
+            startSpeechRecognition() {
+                if (this.speechRecognition && !this.speechRecognitionStopped) {
+                    try {
+                        console.log('🎤 Starting speech recognition...');
+                        this.speechRecognition.start();
+                    } catch (e) {
+                        if (e.name === 'InvalidStateError') {
+                            console.log('Speech recognition already running');
+                        } else {
+                            console.log('Speech recognition start failed:', e);
+                            // If it fails due to permission, we still have WebRTC audio
+                            console.log('Will continue with WebRTC audio only');
+                        }
+                    }
+                }
+            }
+            
+            showGameScreen() {
+                document.getElementById('landingScreen').classList.add('hidden');
+                document.getElementById('gameScreen').classList.remove('hidden');
+            }
+            
+            joinAsPlayer() {
+                this.isReady = true;
+                this.publish("game", "player-ready", {
+                    viewId: this.viewId,
+                    twitterHandle: this.twitterHandle,
+                    cursorX: this.cursorX,
+                    cursorY: this.cursorY
+                });
+            }
+            
+            handleShout() {
+                if (!this.isReady || this.model.gameState !== 'playing') {
+                    console.log('Shout ignored - not ready or game not playing');
+                    return;
+                }
+                
+                console.log('LOUD detected! Shouting...');
+                
+                this.publish("game", "player-shout", {
+                    viewId: this.viewId,
+                    twitterHandle: this.twitterHandle,
+                    cursorX: this.cursorX,
+                    cursorY: this.cursorY
+                });
+                
+                // Visual feedback
+                this.showShoutEffect();
+            }
+            
+            showShoutEffect() {
+                // Add visual effect for successful shout
+                document.body.classList.add('shake');
+                setTimeout(() => {
+                    document.body.classList.remove('shake');
+                }, 500);
+            }
+            
+            updateGameState() {
+                this.renderPlayers();
+                this.updateLeaderboard();
+                this.updatePlayerCount();
+                this.updateQueueDisplay();
+                this.updateGameStatus();
+            }
+            
+            renderPlayers() {
+                const arena = document.getElementById('gameArena');
+                
+                // Clear existing cursors
+                arena.querySelectorAll('.cursor-player').forEach(el => el.remove());
+                
+                // Render current players
+                for (const [viewId, player] of this.model.players) {
+                    const score = this.model.scores.get(viewId) || 0;
+                    const cursor = this.createPlayerCursor(player, score);
+                    arena.appendChild(cursor);
+                }
+            }
+            
+            createPlayerCursor(player, score) {
+                const cursor = document.createElement('div');
+                cursor.className = 'cursor-player';
+                cursor.style.left = player.cursorX + 'px';
+                cursor.style.top = player.cursorY + 'px';
+                
+                const size = Math.max(20, 20 + score * 10);
+                const isMe = player.viewId === this.viewId;
+                
+                cursor.innerHTML = `
+                    <div class="relative">
+                        <div class="rounded-full ${isMe ? 'bg-blue-600' : 'bg-blue-400'} flex items-center justify-center text-xs font-bold text-white shadow-lg"
+                             style="width: ${size}px; height: ${size}px;">
+                            ${score}
+                        </div>
+                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-1 bg-white/95 text-black text-xs rounded border border-blue-400 font-semibold whitespace-nowrap">
+                            ${player.twitterHandle}
+                        </div>
+                        ${score > 0 ? '<div class="absolute inset-0 rounded-full pulse-ring bg-blue-400/50"></div>' : ''}
+                    </div>
+                `;
+                
+                return cursor;
+            }
+            
+            updateLeaderboard() {
+                const leaderboard = document.getElementById('leaderboard');
+                const entries = [];
+                
+                for (const [viewId, score] of this.model.scores) {
+                    const player = this.model.players.get(viewId);
+                    if (player) {
+                        entries.push({player, score});
+                    }
+                }
+                
+                entries.sort((a, b) => b.score - a.score);
+                
+                leaderboard.innerHTML = entries.map((entry, index) => {
+                    const isMe = entry.player.viewId === this.viewId;
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                    
+                    return `
+                        <div class="flex justify-between items-center ${isMe ? 'bg-blue-100 rounded px-2 py-1 border border-blue-400' : ''}">
+                            <span class="text-black font-bold">
+                                ${medal} ${entry.player.twitterHandle}
+                            </span>
+                            <span class="text-blue-600 font-bold">${entry.score}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            updatePlayerCount() {
+                const count = this.model.players.size;
+                document.getElementById('playerCount').textContent = count + '/10';
+            }
+            
+            updateQueueDisplay() {
+                const queueDisplay = document.getElementById('queueDisplay');
+                const queueList = document.getElementById('queueList');
+                
+                if (this.model.queue.length > 0) {
+                    queueDisplay.classList.remove('hidden');
+                    queueList.innerHTML = this.model.queue.slice(0, 10).map((player, index) => 
+                        `<div class="text-black text-sm font-semibold">${index + 1}. ${player.twitterHandle}</div>`
+                    ).join('');
+                } else {
+                    queueDisplay.classList.add('hidden');
+                }
+            }
+            
+            updateGameStatus() {
+                const status = document.getElementById('gameStatus');
+                
+                switch (this.model.gameState) {
+                    case 'waiting':
+                        status.textContent = 'Waiting for players...';
+                        break;
+                    case 'playing':
+                        status.textContent = 'SHOUT "LOUD" NOW!';
+                        break;
+                    case 'finished':
+                        status.textContent = 'Round finished!';
+                        break;
+                }
+            }
+            
+            handleRoundStart() {
+                console.log('Round started!');
+                document.getElementById('winnerDisplay').classList.add('hidden');
+            }
+            
+            handleRoundEnd({winner, maxScore}) {
+                console.log('Round ended! Winner:', winner);
+                
+                if (winner) {
+                    document.getElementById('winnerInfo').textContent = winner.twitterHandle;
+                    document.getElementById('winnerStats').textContent = `${maxScore} shouts`;
+                    document.getElementById('winnerDisplay').classList.remove('hidden');
+                }
+            }
+            
+            updateTimer(timeLeft) {
+                const timer = document.getElementById('timer');
+                timer.textContent = timeLeft;
+                
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    timer.classList.add('text-red-400', 'animate-pulse');
+                } else {
+                    timer.classList.remove('text-red-400', 'animate-pulse');
+                }
+            }
+            
+            handleShoutDetected({viewId, score, twitterHandle}) {
+                if (viewId === this.viewId) {
+                    this.showShoutEffect();
+                } else {
+                    // Someone else shouted - show visual feedback
+                    this.showOtherPlayerShoutEffect(twitterHandle);
+                }
+            }
+            
+            showOtherPlayerShoutEffect(twitterHandle) {
+                // Show a brief notification when others shout
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-lg z-50 animate-bounce border border-cyan-400';
+                notification.textContent = `${twitterHandle} SHOUTED!`;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 1000);
+            }
+
+            // WebRTC Event Handlers
+            async handlePeerJoined({peerId}) {
+                if (peerId !== this.viewId) {
+                    console.log('New peer joined, establishing connection:', peerId);
+                    // Add delay to ensure audio manager is ready
+                    setTimeout(async () => {
+                        await this.audioManager.connectToPeer(peerId, true);
+                    }, 1000);
+                }
+            }
+
+            handlePeerDisconnected({peerId}) {
+                console.log('Peer disconnected:', peerId);
+                this.audioManager.disconnectFromPeer(peerId);
+            }
+
+            handleWebRTCSignalRelay({signal, data}) {
+                // Add retry mechanism for failed connections
+                if (this.audioManager) {
+                    this.audioManager.handleSignal(signal, data);
+                } else {
+                    console.log('Audio manager not ready, retrying in 1s...');
+                    setTimeout(() => {
+                        if (this.audioManager) {
+                            this.audioManager.handleSignal(signal, data);
+                        }
+                    }, 1000);
+                }
+            }
+            
+            sendChatMessage() {
+                const input = document.getElementById('chatInput');
+                const message = input.value.trim();
+                
+                if (message && this.twitterHandle) {
+                    this.publish("chat", "message", {
+                        message,
+                        author: this.twitterHandle,
+                        timestamp: Date.now()
+                    });
+                    input.value = '';
+                }
+            }
+            
+            updateChat(messages) {
+                const chatMessages = document.getElementById('chatMessages');
+                
+                chatMessages.innerHTML = messages.slice(-10).map(msg => 
+                    `<div class="text-xs">
+                        <span class="text-blue-600 font-bold">${msg.author}:</span>
+                        <span class="text-black">${msg.message}</span>
+                    </div>`
+                ).join('');
+                
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            tweetVictory() {
+                const text = `🎤 I just won the $LOUD Shouting Match! 🏆\n\nShout "LOUD" to earn $LOUD tokens! \n\n@stayloudio @multisynq\n\n#LoudToTheMoon #GetLoud`;
+                const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+            }
+        }
+
+        // Initialize MultiSynq session
+        console.log('Initializing $LOUD Shouting Match...');
+        Multisynq.Session.join({
+            apiKey: '2Ah3uT9ntspSicbhbmKrB4y1znhnui7kWlCLj67tcF',
+            appId: 'io.multisynq.shoutloud',
+            model: LoudGame,
+            view: LoudGameView,
+        }).then(session => {
+            console.log('$LOUD Shouting Match loaded! 🎤');
+            console.log('Session:', session);
+            
+            // Make view globally accessible for manual restart button
+            window.gameView = session.view;
+        }).catch(error => {
+            console.error('Failed to join session:', error);
+            alert('Failed to connect to game server. Please refresh and try again.');
+        });
+    </script>
+</body>
+</html> 
