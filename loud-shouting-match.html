@@ -180,6 +180,9 @@
             <button id="restartSpeechBtn" class="hidden mt-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onclick="window.gameView?.manualRestartSpeech()">
                 🔄 Restart Speech
             </button>
+            <button id="testShoutBtn" class="mt-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700" onclick="window.gameView?.testShout()">
+                🧪 Test Shout
+            </button>
         </div>
     </div>
 
@@ -597,13 +600,29 @@
             }
             
             handlePlayerShout({viewId, twitterHandle, cursorX, cursorY}) {
-                if (this.gameState !== 'playing') return;
+                console.log('🔥 Model: Received player-shout event');
+                console.log('   - viewId:', viewId);
+                console.log('   - twitterHandle:', twitterHandle);
+                console.log('   - gameState:', this.gameState);
+                
+                if (this.gameState !== 'playing') {
+                    console.log('❌ Model: Ignoring shout - game not playing');
+                    return;
+                }
                 
                 const player = this.players.get(viewId);
-                if (!player) return;
+                if (!player) {
+                    console.log('❌ Model: Player not found in current players');
+                    return;
+                }
                 
                 const now = Date.now();
-                if (now - player.lastShoutTime < 100) return; // Super sensitive - only 100ms timeout!
+                if (now - player.lastShoutTime < 100) {
+                    console.log('❌ Model: Shout rate limited');
+                    return; // Super sensitive - only 100ms timeout!
+                }
+                
+                console.log('✅ Model: Processing shout...');
                 
                 // Update player data
                 player.cursorX = cursorX;
@@ -613,11 +632,16 @@
                 
                 // Update score
                 const currentScore = this.scores.get(viewId) || 0;
-                this.scores.set(viewId, currentScore + 1);
+                const newScore = currentScore + 1;
+                this.scores.set(viewId, newScore);
+                
+                console.log('✅ Model: Score updated');
+                console.log('   - oldScore:', currentScore);
+                console.log('   - newScore:', newScore);
                 
                 this.publish("game", "shout-detected", {
                     viewId, 
-                    score: currentScore + 1, 
+                    score: newScore, 
                     twitterHandle: player.twitterHandle
                 });
                 this.publish("game", "state-updated");
@@ -812,26 +836,34 @@
                         for (let i = event.resultIndex; i < event.results.length; i++) {
                             const result = event.results[i];
                             const transcript = result[0].transcript.toLowerCase().trim();
-                            console.log('Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
+                            console.log('🎤 Heard:', transcript, 'Final:', result.isFinal, 'Confidence:', result[0].confidence);
                             
-                            // Ultra sensitive - catch any variation of "loud" or similar sounds
-                            // Accept both interim and final results for faster response
-                            if (transcript.includes('loud') || 
-                                transcript.includes('load') || 
-                                transcript.includes('laud') || 
-                                transcript.includes('out') ||
-                                transcript.includes('how') ||
-                                transcript.includes('wow') ||
-                                transcript.includes('ow') ||
-                                transcript.includes('oud') ||
-                                transcript.includes('od') ||
-                                transcript.includes('lou') ||
-                                transcript.includes('no') || // Sometimes "LOUD" is heard as "no"
-                                transcript.includes('la') ||   // Sometimes partial "loud"
-                                transcript.includes('al')) {   // Sometimes reversed
-                                console.log('🎯 LOUD detected from:', transcript);
+                            // Make detection much more aggressive and sensitive
+                            const loudVariations = [
+                                'loud', 'load', 'laud', 'out', 'how', 'wow', 'ow', 'oud', 'od', 'lou', 
+                                'no', 'la', 'al', 'low', 'now', 'so', 'go', 'oh', 'lo', 'do', 'to',
+                                'you', 'loo', 'who', 'foo', 'boo', 'too', 'zoo', 'new', 'due', 'few',
+                                'law', 'raw', 'saw', 'paw', 'jaw', 'maw', 'awe', 'yaw', 'plow'
+                            ];
+                            
+                            // Check if transcript contains any variation
+                            let foundMatch = false;
+                            for (const variation of loudVariations) {
+                                if (transcript.includes(variation)) {
+                                    console.log(`🎯 LOUD detected! Matched "${variation}" in "${transcript}"`);
+                                    foundMatch = true;
+                                    break;
+                                }
+                            }
+                            
+                            // ALSO: Accept any single word or sound if confidence is very low (background noise might be loud shouting)
+                            if (!foundMatch && transcript.length <= 5 && result[0].confidence < 0.5) {
+                                console.log(`🎯 LOUD detected! Low confidence short sound: "${transcript}" (${result[0].confidence})`);
+                                foundMatch = true;
+                            }
+                            
+                            if (foundMatch) {
                                 this.handleShout();
-                                // Don't break - let it continue for multiple detections
                             }
                         }
                     };
@@ -910,6 +942,26 @@
                 setTimeout(() => {
                     this.startSpeechRecognition();
                 }, 500);
+            }
+            
+            testShout() {
+                console.log('🧪 Test shout triggered manually');
+                
+                if (!this.isReady) {
+                    console.log('❌ Not ready to test shout');
+                    alert('Join the game first!');
+                    return;
+                }
+                
+                if (this.model.gameState !== 'playing') {
+                    console.log('❌ Game not in playing state:', this.model.gameState);
+                    alert('Wait for the round to start!');
+                    return;
+                }
+                
+                // Force trigger a shout regardless of speech recognition
+                console.log('✅ Triggering test shout...');
+                this.handleShout();
             }
             
             restartSpeechRecognition() {
@@ -1014,11 +1066,16 @@
             
             handleShout() {
                 if (!this.isReady || this.model.gameState !== 'playing') {
-                    console.log('Shout ignored - not ready or game not playing');
+                    console.log('❌ Shout ignored - not ready or game not playing');
+                    console.log('   - isReady:', this.isReady);
+                    console.log('   - gameState:', this.model.gameState);
                     return;
                 }
                 
-                console.log('LOUD detected! Shouting...');
+                console.log('✅ LOUD detected! Shouting...');
+                console.log('   - viewId:', this.viewId);
+                console.log('   - twitterHandle:', this.twitterHandle);
+                console.log('   - current score:', this.model.scores.get(this.viewId) || 0);
                 
                 this.publish("game", "player-shout", {
                     viewId: this.viewId,
