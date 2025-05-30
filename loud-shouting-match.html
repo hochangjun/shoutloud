@@ -199,7 +199,6 @@
             <div id="voiceActivity" class="text-xs text-blue-600 mt-1">Listening...</div>
             <div class="text-xs text-blue-800 mt-2 font-bold">🔗 Connections:</div>
             <div id="connectionStatus" class="text-xs text-blue-600 mt-1">None</div>
-            <div class="text-xs text-green-700 mt-1 font-bold">🎤 Audio fallback: Active</div>
             <div class="text-xs text-gray-600 mt-1">Shout LOUD to score!</div>
             <button id="restartSpeechBtn" class="hidden mt-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" onclick="window.gameView?.manualRestartSpeech()">
                 🔄 Restart Speech
@@ -272,8 +271,6 @@
 
             startVoiceActivityDetection() {
                 const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                let loudCount = 0;
-                let lastShoutTime = 0;
                 
                 const detectActivity = () => {
                     this.analyser.getByteFrequencyData(dataArray);
@@ -285,24 +282,7 @@
                     }
                     this.micLevel = sum / dataArray.length;
                     
-                    // Detect loud shouting as fallback when speech recognition fails
-                    if (this.micLevel > 80) { // Very loud threshold
-                        loudCount++;
-                        if (loudCount > 3 && (Date.now() - lastShoutTime) > 1000) { // 3 consecutive loud readings, 1s cooldown
-                            lastShoutTime = Date.now();
-                            loudCount = 0;
-                            
-                            // Only trigger if we're connected and in game
-                            if (window.gameView && window.gameView.isReady && window.gameView.model.gameState === 'playing') {
-                                console.log('🎤🔊 LOUD AUDIO detected as fallback! Level:', Math.round(this.micLevel));
-                                window.gameView.handleShout();
-                            }
-                        }
-                    } else {
-                        loudCount = 0;
-                    }
-                    
-                    // Update UI
+                    // Update UI only - remove aggressive audio detection that might interfere with WebRTC
                     const indicator = document.getElementById('voiceActivity');
                     if (indicator) {
                         if (this.micLevel > 20) {
@@ -933,9 +913,9 @@
                                 console.log(`Will retry... (${this.speechRestartCount}/${this.maxRestarts})`);
                                 setTimeout(() => this.restartSpeechRecognition(), 5000);
                             } else {
-                                console.log('❌ Max restart attempts reached - using fallback mode');
+                                console.log('❌ Max restart attempts reached - speech recognition disabled');
                                 this.speechRecognitionStopped = true;
-                                this.updateAudioStatus('🔊 Voice only (audio fallback active)');
+                                this.updateAudioStatus('🔊 Voice only (speech disabled)');
                             }
                         }
                     };
